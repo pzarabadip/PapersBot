@@ -1,20 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# PapersBot
-#
-# purpose:  read journal RSS feeds and tweet selected entries
-# license:  MIT License
-# author:   François-Xavier Coudert
-# e-mail:   fxcoudert@gmail.com
-#
+# -*- coding: utf-_8 -*-
+"""PapersBot - MultiPurpose"""
 
 import imghdr
 import json
 import os
 import re
-import sys
-import tempfile
 import time
 import urllib
 import yaml
@@ -24,36 +14,88 @@ import feedparser
 import tweepy
 
 
-# This is the regular expression that selects the papers of interest
-regex = re.compile(r"""
-  (   \b(MOF|MOFs|COF|COFs|ZIF|ZIFs)\b
-    | metal.organic.framework
-    | covalent.organic.framework
-    | metal–organic.framework
-    | covalent–organic.framework
-    | imidazolate.framework
-    | porous.coordination.polymer
-    | framework.material
-  )
-  """, re.IGNORECASE | re.VERBOSE)
+def _get_regex(bot_type):
+    """This is the regular expression that selects the papers of interest"""
+    if bot_type == 'MOF_papers':
+        regex = re.compile(
+            r"""
+          (   \b(MOF|MOFs|COF|COFs|ZIF|ZIFs)\b
+            | metal.organic.framework
+            | covalent.organic.framework
+            | metal–organic.framework
+            | covalent–organic.framework
+            | imidazolate.framework
+            | porous.coordination.polymer
+            | framework.material
+          )
+          """, re.IGNORECASE | re.VERBOSE)
+    # Simplified to only selectes COF papers. From: Daniele Ongari's fork:
+    # (https://github.com/danieleongari/PapersBot/blob/master/papersbot.py)
+    elif bot_type == 'COF_papers':
+        regex = re.compile(
+            r"""
+          (   \b(COF|COFs)\b
+            | covalent.organic.framework
+            | covalent–organic.framework
+          )
+          """, re.IGNORECASE | re.VERBOSE)
+    # ML papers from Kevin's branch:
+    # https://github.com/kjappelbaum/PapersBot/blob/master/papersbot.py
+    elif bot_type == 'mat_mol_ml_papers':
+        #pylint: disable=line-too-long
+        regex = re.compile(
+            r"""^(?!.*(cell|clinic|bio|histological|medic|bacterial|organ|metabolic|gene|injury|living|ontolog|tumor|cancer|brain)).*(
+            machine.learning
+            | deep.learning
+            | neural.network
+            | qml
+            | big.data
+            | data.driven
+          )
+          """, re.IGNORECASE | re.VERBOSE)
+    elif bot_type == 'NMR_papers':
+        regex = re.compile(
+            r"""
+          (   \b(NMR|pNMR)\b
+            | nuclear.magnetic.resonance
+            | paramagnetic.nuclear.magnetic.resonance
+          )
+          """, re.IGNORECASE | re.VERBOSE)
+    elif bot_type == 'Macrocycle_papers':
+        regex = None  # Will be added later!
+    elif bot_type == 'Carbon_papers':
+        regex = re.compile(
+            r"""
+          (   \b(CNT|CNTs|C60)\b
+            | carbon.nanotube
+            | carbon.microtube
+            | fullerene
+            | endohedral.fullerene
+            | carbonecous.material
+          )
+          """, re.IGNORECASE | re.VERBOSE)
+    return regex
 
 
 # We select entries based on title or summary (abstract, for some feeds)
-def entryMatches(entry):
-    # Malformed entry
+def _entryMatches(entry, bot_type):  #pylint: disable=invalid-name
+    """Malformed entry"""
+    regex = _get_regex(bot_type)
     if "title" not in entry:
         return False
 
     if regex.search(entry.title):
         return True
-    if "summary" in entry:
+
+    if "summary" in entry:  #pylint: disable=no-else-return # needs to be fixed
         return regex.search(entry.summary)
     else:
         return False
 
 
 # Find the URL for an image associated with the entry
-def findImage(entry):
+def _findImage(entry):  #pylint: disable=invalid-name, inconsistent-return-statements
+    """Doc """
     if "description" not in entry:
         return
 
@@ -61,28 +103,29 @@ def findImage(entry):
     img = soup.find("img")
     if img:
         img = img["src"]
-        if len(img) == 0:
+        if len(img) == 0:  #pylint: disable=len-as-condition
             return
         # If address is relative, append root URL
         if img[0] == "/":
-            p = urllib.parse.urlparse(entry.id)
+            p = urllib.parse.urlparse(entry.id)  #pylint: disable=invalid-name
             img = f"{p.scheme}://{p.netloc}" + img
 
     return img
 
 
 # Convert string from HTML to plain text
-def htmlToText(s):
+def _htmlToText(s):  #pylint: disable=invalid-name
     return bs4.BeautifulSoup(s, "html.parser").get_text()
 
 
-def downloadImage(url):
+def _downloadImage(url):  #pylint: disable=invalid-name
+    """Doc """
     if not url:
         return None
 
     try:
         img, _ = urllib.request.urlretrieve(url)
-    except Exception:
+    except Exception:  #pylint: disable=broad-except # needs to be fixed.
         return None
     ext = imghdr.what(img)
     res = img + "." + ext
@@ -103,39 +146,40 @@ def downloadImage(url):
 #   ACCESS_KEY: "7109..."
 #   ACCESS_SECRET: "AdnA..."
 #
-def initTwitter():
-    with open("credentials.yml", "r") as f:
+def _initTwitter():  #pylint: disable=invalid-name
+    """Doc """
+    with open("credentials.yml", "r") as f:  #pylint: disable=invalid-name
         cred = yaml.safe_load(f)
     auth = tweepy.OAuthHandler(cred["CONSUMER_KEY"], cred["CONSUMER_SECRET"])
     auth.set_access_token(cred["ACCESS_KEY"], cred["ACCESS_SECRET"])
     return tweepy.API(auth)
 
 
-def getTwitterConfig(api):
-    # Check for cached configuration, no more than a day old
+def _getTwitterConfig(api):  #pylint: disable=invalid-name
+    """Check for cached configuration, no more than a day old"""
     if os.path.isfile("twitter_config.dat"):
         mtime = os.stat("twitter_config.dat").st_mtime
         if time.time() - mtime < 24 * 60 * 60:
-            with open("twitter_config.dat", "r") as f:
+            with open("twitter_config.dat", "r") as f:  #pylint: disable=invalid-name
                 return json.load(f)
 
     # Otherwise, query the Twitter API and cache the result
     config = api.configuration()
-    with open("twitter_config.dat", "w") as f:
+    with open("twitter_config.dat", "w") as f:  #pylint: disable=invalid-name
         json.dump(config, f)
     return config
 
 
 # Read our list of feeds from file
-def readFeedsList():
-    with open("feeds.txt", "r") as f:
+def _readFeedsList():  #pylint: disable=invalid-name
+    with open("feeds.txt", "r") as f:  #pylint: disable=invalid-name
         feeds = [s.partition("#")[0].strip() for s in f]
         return [s for s in feeds if s]
 
 
 # Remove unwanted text some journals insert into the feeds
-def cleanText(s):
-    # Annoying ASAP tags
+def _cleanText(s):  #pylint: disable=invalid-name
+    """Annoying ASAP tags"""
     s = s.replace("[ASAP]", "")
     # Some feeds have LF characeters
     s = s.replace("\x0A", "")
@@ -146,28 +190,30 @@ def cleanText(s):
 
 
 # Read list of feed items already posted
-def readPosted():
+def _readPosted():  #pylint: disable=invalid-name
+    """Doc """
     try:
-        with open("posted.dat", "r") as f:
+        with open("posted.dat", "r") as f:  #pylint: disable=invalid-name
             return f.read().splitlines()
-    except Exception:
+    except Exception:  #pylint: disable=broad-except # needs to be fixed.
         return []
 
 
 class PapersBot:
+    """PapersBot Class """
     posted = []
     n_seen = 0
     n_tweeted = 0
 
     def __init__(self, doTweet=True):
-        self.feeds = readFeedsList()
-        self.posted = readPosted()
+        self.feeds = _readFeedsList()
+        self.posted = _readPosted()
 
         # Read parameters from configuration file
         try:
-            with open("config.yml", "r") as f:
+            with open("config.yml", "r") as f:  #pylint: disable=invalid-name
                 config = yaml.safe_load(f)
-        except Except:
+        except Except:  #pylint: disable=undefined-variable
             config = {}
         self.throttle = config.get("throttle", 0)
         self.wait_time = config.get("wait_time", 5)
@@ -176,13 +222,13 @@ class PapersBot:
 
         # Connect to Twitter, unless requested not to
         if doTweet:
-            self.api = initTwitter()
+            self.api = _initTwitter()
         else:
             self.api = None
 
         # Determine maximum tweet length
         if doTweet:
-            twconfig = getTwitterConfig(self.api)
+            twconfig = _getTwitterConfig(self.api)
             urllen = max(twconfig["short_url_length"], twconfig["short_url_length_https"])
             imglen = twconfig["characters_reserved_per_media"]
         else:
@@ -198,14 +244,15 @@ class PapersBot:
         print(f"Feed list has {len(self.feeds)} feeds\n")
 
     # Add to tweets posted
-    def addToPosted(self, url):
-        with open("posted.dat", "a+") as f:
+    def addToPosted(self, url):  #pylint: disable=invalid-name
+        with open("posted.dat", "a+") as f:  #pylint: disable=invalid-name
             print(url, file=f)
         self.posted.append(url)
 
     # Send a tweet for a given feed entry
-    def sendTweet(self, entry):
-        title = cleanText(htmlToText(entry.title))
+    def sendTweet(self, entry):  #pylint: disable=invalid-name
+        """Doc """
+        title = _cleanText(_htmlToText(entry.title))
         length = self.maxlength
 
         # Usually the ID is the canonical URL, but not always
@@ -229,8 +276,8 @@ class PapersBot:
                 return
 
         media = None
-        image = findImage(entry)
-        image_file = downloadImage(image)
+        image = _findImage(entry)
+        image_file = _downloadImage(image)
         if image_file:
             print(f"IMAGE: {image}")
             if self.api:
@@ -248,11 +295,12 @@ class PapersBot:
             time.sleep(self.wait_time)
 
     # Main function, iterating over feeds and posting new items
-    def run(self):
+    def run(self, bot_type):
+        """Doc """
         for feed in self.feeds:
             parsed_feed = feedparser.parse(feed)
             for entry in parsed_feed.entries:
-                if entryMatches(entry):
+                if _entryMatches(entry, bot_type):
                     self.n_seen += 1
                     # If no ID provided, use the link as ID
                     if "id" not in entry:
@@ -265,45 +313,22 @@ class PapersBot:
                             return
 
     # Print statistics of a given run
-    def printStats(self):
+    def printStats(self):  #pylint: disable=invalid-name
+        """Doc """
         print(f"Number of relevant papers: {self.n_seen}")
         print(f"Number of papers tweeted: {self.n_tweeted}")
 
     # Print out the n top tweets (most liked and RT'ed)
-    def printTopTweets(self, count=20):
+    def printTopTweets(self, count=20):  #pylint: disable=invalid-name
+        """Doc """
         tweets = self.api.user_timeline(count=200)
         oldest = tweets[-1].created_at
         print(f"Top {count} recent tweets, by number of RT and likes, since {oldest}:\n")
 
         tweets = [(t.retweet_count + t.favorite_count, t.id, t) for t in tweets]
         tweets.sort(reverse=True)
-        for _, _, t in tweets[0:count]:
+        for _, _, t in tweets[0:count]:  #pylint: disable=invalid-name
             url = f"https://twitter.com/{t.user.screen_name}/status/{t.id}"
             print(f"{t.retweet_count} RT {t.favorite_count} likes: {url}")
             print(f"    {t.created_at}")
             print(f"    {t.text}\n")
-
-
-def main():
-    # Make sure all options are correctly typed
-    options_allowed = ["--do-not-tweet", "--top-tweets"]
-    for arg in sys.argv[1:]:
-        if arg not in options_allowed:
-            print(f"Unknown option: {arg}")
-            sys.exit(1)
-
-    # Initialize our bot
-    doTweet = "--do-not-tweet" not in sys.argv
-    bot = PapersBot(doTweet)
-
-    # We can print top tweets
-    if "--top-tweets" in sys.argv:
-        bot.printTopTweets()
-        sys.exit(0)
-
-    bot.run()
-    bot.printStats()
-
-
-if __name__ == "__main__":
-    main()

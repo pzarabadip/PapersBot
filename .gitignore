@@ -1,3 +1,5 @@
 credentials.yml
 posted.dat
 twitter_config.dat
+__pycache__
+*.egg-info

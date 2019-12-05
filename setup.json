@@ -1,0 +1,29 @@
+{
+    "name": "PapersBot",
+    "author": "François-Xavier Coud_ert",
+    "author_email": "fxcoudert@gmail.com",
+    "description": "read journal RSS feeds and tweet selected entries",
+    "url": "https://github.com/fxcoudert/PapersBot",
+    "license": "MIT License",
+    "classifiers": [
+        "Programming Language :: Python :: 3.7"
+    ],
+    "version": "1.0.0a1",
+    "install_requires": [
+        "Click",
+        "bs4",
+        "feedparser",
+        "tweepy"
+    ],
+    "data_files": [
+        [".", ["setup.json"]]
+    ],
+    "extras_require": {
+        "pre-commit": [
+                "pre-commit==1.16.1",
+                "yapf==0.27.0",
+                "prospector==1.1.7",
+                "pylint==2.3.1"
+        ]
+    }
+}
