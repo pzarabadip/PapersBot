@@ -1,0 +1,5 @@
+bs4
+feedparser
+tweepy
+regex
+pyyaml

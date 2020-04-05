@@ -27,17 +27,22 @@ import tweepy
 
 # This is the regular expression that selects the papers of interest
 regex = re.compile(r"""
-  (   \b(MOF|MOFs|COF|COFs|ZIF|ZIFs)\b
-    | metal.organic.framework
-    | covalent.organic.framework
-    | metal–organic.framework
-    | covalent–organic.framework
-    | imidazolate.framework
-    | porous.coordination.polymer
-    | framework.material
+  (   \b(battery|batteries)\b
+    | lithium.ion.battery
+    | sodium.ion.battery
+    | lithium-ion.battery
+    | sodium-ion.battery
+    | solid.electrolyte.material
+    | Na–ion.battery
+    | Li–ion.battery
+    | solid.electrolyte
+    | all-solid-state.battery
+    | battery.cathode
+    | battery.material
+    | lithium.battery
+    | sodium.battery
   )
   """, re.IGNORECASE | re.VERBOSE)
-
 
 # We select entries based on title or summary (abstract, for some feeds)
 def entryMatches(entry):
