@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Setting up PapersBot"""
+from __future__ import absolute_import
 import json
 from setuptools import setup, find_packages
+
 
 def run_setup():
     """Provide static information in setup.json such that
@@ -12,6 +14,7 @@ def run_setup():
           long_description=open('README.md').read(),
           long_description_content_type='text/markdown',
           **kwargs)
+
 
 if __name__ == '__main__':
     run_setup()

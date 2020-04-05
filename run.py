@@ -1,7 +1,8 @@
 # -*- coding: utf-_8 -*-
+from __future__ import absolute_import
 import sys
 import click
-from papersbot import PapersBot
+from .papersbot import PapersBot
 
 
 @click.command('cli')
@@ -27,6 +28,7 @@ def main(bot_type, doTweet, toptweet):  #pylint: disable=invalid-name
 
     bot.run()
     bot.printStats()
+
 
 if __name__ == "__main__":
     main()
